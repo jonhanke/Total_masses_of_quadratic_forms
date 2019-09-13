@@ -1,0 +1,362 @@
+print "Loading Ternary_mass_code2.sage"
+
+#*****************************************************************************
+#       Copyright (C) 2011 Jonathan Hanke
+#
+#  Distributed under the terms of the GNU General Public License (GPL)
+#
+#    This code is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#    General Public License for more details.
+#
+#  The full text of the GPL is available at:
+#
+#                  http://www.gnu.org/licenses/
+#*****************************************************************************
+
+
+#################################################################################
+##
+##  Description:
+##  ------------
+##  This code supports the paper 
+##  
+##      Hanke -- "Explicit formulas for Masses of Ternary Quadratic Lattices 
+##               of varying determinant over Number Fields"
+##
+##  available at
+##
+##      http://arxiv.org/abs/YYYY.ZZZZ
+##
+##  and computes the algebraic Euler factors for the constant-unit local Dirichlet 
+##  series, as well as using the formal Dirichlet series class to check the global 
+##  formula for the total mass Dirichlet series.
+##
+################################################################################
+
+
+
+##################################################################################
+##################################################################################
+##################################################################################
+
+
+
+#############################################################################################################
+
+################################
+## Ternary Mass Expressions
+
+def chi_odd(n):
+    """
+    Define the quadratic character appearing in Cor 7.2 and Cor 8.2 
+    of the Hanke paper "Explicit Formulas for Masses of Ternary ..."
+
+    EXAMPLES:
+        sage: [chi_odd(n)  for n in range(1, 20)]
+        [1, 1, -1, 1, 1, -1, -1, 1, 1, 1, -1, -1, 1, -1, -1, 1, 1, 1, -1]
+        
+    """
+    tmp_pow = ((odd_part(n) % 4) - 1) / 2
+    return (-1)^tmp_pow
+#   return kronecker_character(-1)(odd_part(n))
+
+
+
+def chi_trivial(n):
+    """
+    Define the trivial character of conductor 1. 
+
+    EXAMPLES:
+        sage: [chi_trivial(n)  for n in range(1, 20)]
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        
+    """
+    return 1
+
+
+
+
+
+
+###############################
+## Corollary 7.2 Quantities: ##
+###############################
+
+def Ternary_beta_generic(): 
+    return 4 * zeta__exact(2)
+
+
+def Ternary_A_series__formal(n):
+    """
+    Return the A-series for ternary quadratic forms over ZZ, given 
+    in the Hanke paper "Explicit Formulas for Masses of Ternary ..."
+    """ 
+    N1 = zeta__series(n).shift_variable_by(1)   ## zeta(s+1)
+    #print "N1"
+    N2 = zeta__series(ceil(sqrt(n))).shift_variable_by(3).scale_variable_by(2)   ## zeta(2s+3)
+    #print "N2"
+    D1 = DirichletSeries(QQ, [0, 1], is_exact_flag=True).shift_variable_by(-2)   ## 2^-(s-2)
+    #print "D1"
+    D2 = zeta__series(ceil(n^(QQ(1)/3))).shift_variable_by(6).scale_variable_by(3)   ## zeta(3s+6)
+    #print "D2"
+
+    return (N1 * N2) * D1 * (D2)^(-1)
+
+
+def Ternary_B_series__formal(n):
+    """
+    Return the B-series for ternary quadratic forms over ZZ, given 
+    in the Hanke paper "Explicit Formulas for Masses of Ternary ..."
+    """ 
+    #N1 = zeta__series(ceil(sqrt(n))).shift_variable_by(2).scale_variable_by(2)   ## zeta(2s+2)
+    #N2 = L__series(chi_odd, n).shift_variable_by(2)      ## L(s+2,chi)
+    #D1 = DirichletSeries(QQ, [0, 1], is_exact_flag = True).shift_variable_by(-2)   ## 2^-(s-2)
+    #D2 = L__series(chi_odd, ceil(n^(QQ(1)/3))).shift_variable_by(6).scale_variable_by(3)  ## L(3s+6, chi)
+
+    N1 = zeta__series(ceil(sqrt(n))).shift_variable_by(2).scale_variable_by(2)   ## zeta(2s+2)
+    N2 = L__series(chi_trivial, n).shift_variable_by(2)      ## L(s+2,chi)
+    D1 = DirichletSeries(QQ, [0, 1], is_exact_flag = True).shift_variable_by(-2)   ## 2^-(s-2)
+    D2 = L__series(chi_trivial, ceil(n^(QQ(1)/3))).shift_variable_by(6).scale_variable_by(3)  ## L(3s+6, chi)
+
+
+
+
+    return (N1 * N2) * D1 * (D2)^(-1) * (-1)
+
+
+
+def A3(S):
+    """
+    Return the function A_{n=3}(N) defined in "..."
+    Where S in the Hessian determinant.
+    """
+    ## Deal with odd Hession determinant (not possible!)
+    if is_odd(S):
+        return(0)
+
+    ## Setup some useful quantities
+    N = S/2
+    odd_primes_of_N = prime_divisors(S)[1:]
+    
+    ## Compute A_N
+    A3_N = A3_for_N_at_p_even(N)
+    for p in odd_primes_of_N:
+        A3_N *= A3_for_N_at_p_odd(N, p)
+
+    ## Return the value
+    return A3_N
+
+
+def B3(S):
+    """
+    Return the function B_{n=3}(N) defined in "..."
+    Where S in the Hessian determinant.
+    """
+    ## Deal with odd Hession determinant (not possible!)
+    if is_odd(S):
+        return(0)
+
+    ## Setup some useful quantities
+    N = S/2
+    odd_primes_of_N = prime_divisors(S)[1:]
+
+    ## Compute B_N
+    B3_N = B3_for_N_at_p_even(N)
+    for p in odd_primes_of_N:
+        B3_N *= B3_for_N_at_p_odd(N, p)
+
+    ## Return the value
+    return B3_N
+
+
+def Ternary_A_series__computational(n):
+    """
+    Return the A-series for ternary quadratic forms over ZZ, given 
+    in the Hanke paper "Explicit Formulas for Masses of Ternary ..."
+    computed by its local formulas at all primes p.
+    """ 
+    return DirichletSeries(QQ, A3, n)
+
+def Ternary_B_series__computational(n):
+    """
+    Return the B-series for ternary quadratic forms over ZZ, given 
+    in the Hanke paper "Explicit Formulas for Masses of Ternary ..."
+    computed by its local formulas at all primes p.
+    """ 
+    return DirichletSeries(QQ, B3, n)
+
+
+
+
+
+
+###############################
+## Corollary 8.2 Quantities: ##
+###############################
+
+def Ternary_Mass_series__formal(n):
+    """
+    Return the Mass-series for ternary quadratic forms over ZZ, given 
+    in the Hanke paper "Explicit Formulas for Masses of Ternary ..."
+    """ 
+
+    ## Term 1
+    N11 = zeta__series(n).shift_variable_by(-1) 
+    N12 = zeta__series(ceil(sqrt(n))).shift_variable_by(-1).scale_variable_by(2)
+    D11 = zeta__series(ceil(n^(QQ(1)/3))).scale_variable_by(3)
+    T1 = (N11 * N12) * (D11)^(-1)
+
+    ## Term 2
+#    N21 = zeta__series(ceil(sqrt(n))).shift_variable_by(-2).scale_variable_by(2)
+#    N22 = L__series(chi_odd, n)
+#    D21 = L__series(chi_odd, ceil(n^(QQ(1)/3))).scale_variable_by(3)
+#    T2 = (N21 * N22) * (D21)^(-1) * (-1)
+#
+    N21 = zeta__series(ceil(sqrt(n))).shift_variable_by(-2).scale_variable_by(2)
+    N22 = zeta__series(n)
+    D21 = zeta__series(ceil(n^(QQ(1)/3))).scale_variable_by(3)
+    T2 = (N21 * N22) * (D21)^(-1) * (-1)
+
+
+
+    
+    ## Extra factors    
+#    one_twelfth = QQ(1)/12
+    one_forty_eighth = QQ(1)/48
+    two__pow_minus_s = DirichletSeries(QQ, [0, 1], is_exact_flag=True)
+
+    ## Make and return the mass series
+    Mass_Series = two__pow_minus_s * (T1 + T2) * one_forty_eighth
+    return Mass_Series
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Make the Global Ternary Table (if it is not already defined):
+## -------------------------------------------------------------
+try:
+    Ternary_table
+except NameError:
+    try:
+        Max_H_Det = 2000  # This is saved in a table
+        print "Creating a table of primitive ternaries of determinant <= " + str(Max_H_Det) + "."       
+        Ternary_table = load("/home/jonhanke/HT" + str(Max_H_Det) + ".sobj")
+        print "Finished creating a table of primitive ternaries of determinant <= " + str(Max_H_Det) + "."
+    except:
+        Max_H_Det = 400  # This can be quickly computed on the fly in a few seconds 
+        print "Creating a table of primitive ternaries of determinant <= " + str(Max_H_Det) + "."       
+        Ternary_table = hanke_ternary_table_by_determinant(Max_H_Det);
+        print "Finished creating a table of primitive ternaries of determinant <= " + str(Max_H_Det) + "."
+
+
+def Total_Mass_of_pos_def_for_Hessian_det(S, TT=Ternary_table):
+    """
+    Compute the total mass of (primitive) positive definite integer-valued
+    ternary quadratic forms of fixed Hessian determinant S by the mass formula.
+
+    This assumes the existence of a Hanke table TT that contains all classes of 
+    positive definite integer-valued ternary quadratic forms of given (Hessian) determinant.
+
+    INPUT:
+        N -- an integer >=1
+
+    OUTPUT:
+        a rational number >=0
+
+    EXAMPLES:
+        sage: M3_pos_def_for_N(1)
+        0
+        sage: M3_pos_def_for_N(3)
+        1/4
+        sage: M3_pos_def_for_N(2)
+        1
+        sage: M3_pos_def_for_N(4)
+        1/48
+
+    """
+    ## SANITY CHECK:  Is N a positive integer?
+    ## SANITY CHECK:  Does the table cover forms of (Hessian) determinant 2*N?
+
+    ## Compute the mass and M_N    
+    total_mass_for_S = sum([1/Q.number_of_automorphisms()  for Q in TT.list_forms_of_det(S) if Q.is_primitive()])
+    return total_mass_for_S
+
+
+
+def Ternary_Mass_series__computational(n):
+    """
+    Return the Mass-series for ternary quadratic forms over ZZ, given 
+    in the Hanke paper "Explicit Formulas for Masses of Ternary ..."
+    """ 
+    return DirichletSeries(QQ, Total_Mass_of_pos_def_for_Hessian_det, n)
+
+
+
+
+
+
+## Checking the Divisor sum formula for the (imprimitive) Total Ternary Mass:
+## --------------------------------------------------------------------------
+
+
+def T3_divisor_sum_formula(S):
+    """
+    Gives the divisor sum formula that should give the Total
+    (imprimitive) Ternary Mass of Hessian determinant S.
+    """
+    ## Check that S is even and positive
+    if (S % 2 != 0) or (S <= 0):
+        return 0
+
+    ## Make the Total Ternary Mass divisor sum
+    S2 = S/2
+    tmp_sum = 0
+    for a in divisors(S2):
+        b2 = S2 / a
+        if is_square(S2 / a):
+           b = sqrt(b2)
+           tmp_sum += (a*b - b2)
+
+    ## Return the Total Ternary Mass
+    return QQ(tmp_sum) / 48
+
+
+
+def Imprimitive_Ternary_Mass_series__by_divisor_sums(n):
+    """
+    Return the Mass-series for ternary quadratic forms over ZZ, given
+    in the Hanke paper "Explicit Formulas for Masses of Ternary ..."
+    by the divisor sum formula.
+    """
+    return DirichletSeries(QQ, T3_divisor_sum_formula, n)
+
+
+def Imprimitive_Ternary_Mass_series__from_table(n):
+
+    def imprim_ternary_mass_from_table(S, TT=Ternary_table):
+        primitive_subdeterminants = [S / (d**3)  for d in divisors(S)  if (d <= S^(1/3)) and (S % d**3 == 0)]
+        return sum([sum([1/Q.number_of_automorphisms()  for Q in TT.list_forms_of_det(S)])  for S in primitiv\
+e_subdeterminants])
+
+    return DirichletSeries(QQ, imprim_ternary_mass_from_table, n)
+
+
+#############################################
+## Check of the divisor sum formula! =)
+## ------------------------------------
+## sage: Imprimitive_Ternary_Mass_series__by_divisor_sums(200) - Imprimitive_Ternary_Mass_series__from_table(\
+200)
+## 0 + O(201^(-s))
+#############################################
