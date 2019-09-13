@@ -1,0 +1,566 @@
+print "Loading Binary_mass_code.sage"
+
+#*****************************************************************************
+#       Copyright (C) 2011 Jonathan Hanke
+#
+#  Distributed under the terms of the GNU General Public License (GPL)
+#
+#    This code is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#    General Public License for more details.
+#
+#  The full text of the GPL is available at:
+#
+#                  http://www.gnu.org/licenses/
+#*****************************************************************************
+
+
+#################################################################################
+##
+##  Description:
+##  ------------
+##  This code supports the paper 
+##  
+##      Hanke -- "The Structure of Masses of rank $n$ Quadratic Lattices 
+##	         of varying determinant over number fields."
+##
+##  available at
+##
+##      http://arxiv.org/abs/1108.3580
+##
+##  and computes the A_p and B_p quantities by summing the contributions 
+##  of each of the 2 Jordan Block decompositions (for p>2) or the 5 Partial
+##  Local Genus Symbol contributions (for p=2).  It also computes the number of 
+##  automorphisms and proper autmorphisms of binary quadratic forms quickly, 
+##  to make the total masses of given determinant.
+##
+################################################################################
+
+
+
+##################################################################################
+##################################################################################
+##################################################################################
+
+
+
+########################################################################
+##
+##  This is code to compute the quantities M_{N, sigma} for positive 
+##  definite binary quadratic forms.
+##
+########################################################################
+
+
+## Routine to compute the number of automorphisms of a  
+## (non-degenerate) positive definite binary quadratic form:
+## ---------------------------------------------------------
+def Number_of_Automorphisms_of_BQF(BQF):
+    """
+    Compute the number of automorphisms (of det 1 and -1) of 
+    a (non-degenerate) positive definite binary quadratic form.
+    """
+    ## Check that BQF is non-degenerate and definite
+    if BQF.discriminant() >= 0:
+        raise TypeError, "This form is either degenerate or indefinite!"
+    
+    ## Check that BQF is positive definite
+    if not BQF[0] > 0:
+        raise TypeError, "This form is negative definite!"
+
+    ## Find a reduced form
+    if BQF.is_reduced():
+        Q_red = BQF
+    else:
+        Q_red = BQF.reduced_form()
+
+    ## Set some variables
+    a = Q_red[0]
+    b = Q_red[1]
+    c = Q_red[2]
+    
+    ## Determine the number of automorphisms
+    if (a != c):
+        if (b != 0):
+            return ZZ(2)    ## Just +1/-1 scaling 
+        if (b == 0):
+            return ZZ(4)    ## +1/-1 scaling of each variable independently
+    if (a == c): 
+        if (b == 0):
+            return ZZ(8)    ## +1/-1 scaling of each variable independently, and can switch the variables
+        elif (b == a):
+            return ZZ(12)    ## +1/-1 scaling of each variable independently, and can switch the variables
+        else:
+            return ZZ(4)    ## +1/-1 scaling of each variable independently, and can switch the variables
+    
+
+
+
+
+
+
+## Routine to compute the number of proper automorphisms of a  
+## (non-degenerate) positive definite binary quadratic form:
+## ---------------------------------------------------------
+def Number_of_Proper_Automorphisms_of_BQF(BQF):
+    """
+    Compute the number of automorphisms (of det 1 only) of 
+    a (non-degenerate) positive definite binary quadratic form.
+    """
+    ## Check that BQF is non-degenerate and definite
+    if BQF.discriminant() >= 0:
+        raise TypeError, "This form is either degenerate or indefinite!"
+
+    ## Check that BQF is positive definite
+    if not BQF[0] > 0:
+        raise TypeError, "This form is negative definite!"
+
+    ## Find a reduced form
+    if BQF.is_reduced():
+        Q_red = BQF
+    else:
+        Q_red = BQF.reduced_form()
+
+    ## Set some variables
+    a = Q_red[0]
+    b = Q_red[1]
+    c = Q_red[2]
+
+    ## Determine the number of automorphisms
+    if (a != c):
+        if (b != 0):
+            return ZZ(2)    ## Just +1/-1 scaling 
+        if (b == 0):
+            return ZZ(2)    ## +1/-1 scaling of each variable independently (but only half these are not proper!)
+    if (a == c): 
+        if (b == 0):
+            return ZZ(4)    ## +1/-1 scaling of each variable independently, and can switch the variables
+        elif (b == a):
+            return ZZ(6)    ## +1/-1 scaling of each variable independently, and can switch the variables
+        else:
+            return ZZ(2)    ## +1/-1 scaling of each variable independently, and can switch the variables
+
+
+
+
+## Compute the quantity M_{N, \sigma} for pos def ternaries by the mass formula:
+## -----------------------------------------------------------------------------
+
+def Weighted_binary_mass_for_pos_def_at_Hdet_S(S):
+    """
+    Compute the quantity M_{S, \sigma; n=2} for (primitive) positive definite integer-valued
+    ternary quadratic forms of fixed Hessian determinant S by the mass formula.
+        
+	This is based on using Lemma 7.8, p31 to solve for A(S) + B(S).
+
+    INPUT:
+        S -- an integer >=1
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: M2_pos_def_for_S(1)
+        0
+        sage: M2_pos_def_for_S(3)
+        1/4
+        sage: M2_pos_def_for_S(2)
+        1
+        sage: M2_pos_def_for_S(4)
+        1/48
+
+    """
+    ## SANITY CHECK:  Is N a positive integer?
+    ## SANITY CHECK:  Does the table cover forms of (Hessian) determinant 2*N?
+
+    ## Compute the total mass
+    Q_disc = -S
+    Q_list = BinaryQF_reduced_representatives(Q_disc, primitive_only=True)  ## Proper equivalence representatives!
+    total_mass_for_S = QQ(1)/2 * sum([QQ(1)/Number_of_Proper_Automorphisms_of_BQF(Q)  for Q in Q_list])
+
+    ## Compute the adjustment factors to give A(S) + B(S):
+	## ---------------------------------------------------
+	
+	## Compute the infinite product associated to the normalized squareclass S
+    S_cond = kronecker_character(-S).conductor()
+    generic_factor = 2 * quadratic_L_function__exact(1, -S_cond)
+    missing_generic_primes = prime_divisors(S_cond)
+    print "-S = ", -S
+    print "chi_{-S} conductor = ", S_cond
+    print "missing_generic_primes = ", missing_generic_primes
+    for p in missing_generic_primes:
+        u = S / p**valuation(S,p)
+        tmp_adjustment = QQ(1) / (1 - QQ(kronecker_symbol(-u, p)) / p)
+        print "Using the generic adjustment factor " + str(tmp_adjustment) + " at p = " + str(p)
+        generic_factor = generic_factor * tmp_adjustment
+    print "generic_factor = ", generic_factor
+
+	## Compute the overall factor to recover A + B from the mass
+    weighting_factor = 8 * pi / (generic_factor * QQ(S)**(QQ(3)/2))
+    print "weighting_factor = ", weighting_factor
+
+	## Return the A + B value
+    weighted_mass = total_mass_for_S * weighting_factor
+    return weighted_mass
+
+
+
+def A2_for_S_at_p_odd(S, p):
+    """
+    Computes the quantity A_{S,n} at an odd prime p for (primitive) positive 
+    definite integer-valued ternary quadratic forms of fixed Hessian determinant 
+    S by our table of local computations.
+    
+    INPUT:
+        S -- an integer >=1
+        p -- a prime number >2
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: A3_for_S_at_p_odd(1,3)
+        0
+
+    """
+    ## SANITY CHECK: Is p is an odd prime and N >=1?
+    
+    ## Setup some convenient quantities
+    nu = valuation(S,p)
+    u = ZZ(S / (p**nu))    ## Unit part of S
+    gen_factor = QQ(1 - QQ(kronecker_symbol(-u, p))/p)
+    A_sum = 0
+    
+    ## Case 1:
+    if nu == 0:
+        return 1
+        
+    ## Case 2:
+    if nu >= 1:
+        b = nu
+        A_sum += QQ(p)**(-b) * gen_factor
+    
+
+    ## Return the A_sum
+    return A_sum
+
+
+
+def B2_for_S_at_p_odd(S, p):
+    """
+    Computes the quantity B_{S,n=2} at an odd prime p for (primitive) positive 
+    definite integer-valued binnary quadratic forms of fixed Hessian determinant 
+    S by our table of local computations.
+    
+    INPUT:
+        S -- an integer >=1
+        p -- a prime number >2
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: B2_for_S_at_p_odd(1,3)
+        1
+
+    """
+    ## SANITY CHECK: Is p is an odd prime and N >=1?
+    
+    ## Setup some convenient quantities
+    nu = valuation(S,p)
+    u = ZZ(S / (p**nu))    ## Unit part of S
+    gen_factor = QQ(1 - QQ(kronecker_symbol(-u, p))/p)
+    B_sum = 0
+    
+    ## Case 1:
+    if nu == 0:
+        return 1
+        
+    ## Case 2:
+    if nu >= 1:
+        b = nu
+        if (b % 2 == 0):
+            B_sum += QQ(p)**(-b) * gen_factor         
+        else:
+            B_sum += 0
+
+    ## Return the B_sum
+    return B_sum
+
+
+
+
+def A2_for_S_at_p_even(S):
+    """
+    Computes the quantity A_{S,n=2} at p=2 for (primitive) positive definite integer-valued
+    binnary quadratic forms of fixed Hessian determinant S by our table of local computations.
+    
+    INPUT:
+        N -- an integer >=1
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: A3_for_N_at_p_even(1)
+        1/4
+
+    """
+    ## SANITY CHECK: Is N >=1?
+    
+    ## Setup some convenient quantities
+    p=2
+    nu = valuation(S,p)
+    u = ZZ(S / (p**nu))    ## Unit part of S
+    gamma_adj_factor = QQ(1 - QQ(kronecker_symbol(-u, p))/p)
+    A_sum = 0
+    
+    ## Case 1:
+    if nu == 0:
+        if ((u-1) % 4) == 0:
+            A_sum += 0
+        elif ((u-3) % 4) == 0:
+            A_sum += QQ(1)
+    
+    ## Case 2:
+    if nu == 2:
+        A_sum += QQ(2)**(-2) * gamma_adj_factor
+ 
+    ## Case 3:
+    if nu == 3:
+        A_sum += QQ(2)**(-3) * gamma_adj_factor
+
+    ## Case 4:
+    if nu == 4:
+        A_sum += QQ(2)**(-4) * gamma_adj_factor
+
+    ## Case 5:
+    if nu >= 5:
+        A_sum += QQ(2)**(-nu) * gamma_adj_factor
+
+
+    ## Return the A_sum
+    return A_sum
+
+
+
+def B2_for_S_at_p_even(S):
+    """
+    Computes the quantity B_{S,n=2} at p=2 for (primitive) positive definite integer-valued
+    binnary quadratic forms of fixed Hessian determinant S by our table of local computations.
+    
+    INPUT:
+        S -- an integer >=1
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: B2_for_S_at_p_even(1)
+        -1/8
+        sage: [B2_for_S_at_p_even(S)  for S in range(1,20,2)]
+        [-1/8, 1/8, 1/8, -1/8, -1/8, 1/8, 1/8, -1/8, -1/8, 1/8]
+
+
+    """
+    ## SANITY CHECK: Is N >=1?
+    
+    ## Setup some convenient quantities
+    p=2
+    nu = valuation(S,p)
+    u = ZZ(S / (p**nu))    ## Unit part of S
+    gamma_adj_factor = QQ(1 - QQ(kronecker_symbol(-u, p))/p)
+    B_sum = 0
+
+    
+    ## Case 1:
+    if nu == 0:
+        if ((u-1) % 4) == 0:
+            B_sum += 0
+        elif ((u-3) % 4) == 0:
+            B_sum += QQ(-1)
+    
+    ## Case 2:
+    if nu == 2:
+        if ((u-3) % 4) == 0:
+            B_sum += QQ(2)**(-2) * gamma_adj_factor
+        else:
+            B_sum += 0
+
+    ## Case 3:
+    if nu == 3:
+        B_sum += 0
+
+    ## Case 4:
+    if nu == 4:
+        if ((u-3) % 4) == 0:
+            B_sum += QQ(2)**(-4) * gamma_adj_factor
+        else:
+            B_sum += 0
+
+    ## Case 5:
+    if nu >= 5:
+        if (nu % 2 == 0) and ((u-1) % 4 == 0):
+            B_sum += QQ(2)**(-nu) * gamma_adj_factor
+        else:
+            B_sum += 0
+
+
+    ## Return the B_sum
+    return B_sum
+
+
+
+
+
+
+def A2_plus_B2_for_S(S):
+    """
+    Computes the sum of the quantites A_{S,n=2} and B_{S,n=2} for 
+    (primitive) positive definite integer-valued binnary quadratic forms 
+    of fixed Hessian determinant S by our table of local computations.
+
+    INPUT:
+        S -- an integer >=1
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: A2_plus_B2_for_S(1)
+        
+    """
+    ## SANITY CHECK: Is N >=1?
+
+    ## Setup some useful quantities
+    odd_primes_of_S = prime_divisors(2*S)[1:]
+
+    ## Compute A_S
+    A2_S = A2_for_S_at_p_even(S)
+    for p in odd_primes_of_S:
+        A2_S *= A2_for_S_at_p_odd(S, p)
+
+    ## Compute B_S
+    B2_S = B2_for_S_at_p_even(S)
+    for p in odd_primes_of_S:
+        B2_S *= B2_for_S_at_p_odd(S, p)
+
+    ## Return the sum
+    return A2_S + B2_S
+
+
+
+
+
+## Diagnostic routine to solve for individual A_{p=2; n=3} and B_{p=2; n=3} coefficients!
+## --------------------------------------------------------------------------------------
+
+def solve_for_binary_A_B_with_S_nu_2_and_u(N_nu_2, u, two_mod=8, max_N=0):
+    """
+    Try to solve for A_(2^N_nu_2) and B_(2^N_nu_2) for a 
+    fixed N_odd = u (mod 8) using our table of ternary forms.
+    """    
+    ## SANITY CHECK: u is odd
+    if u % 2 == 0:
+        raise TypeError, "The number u must be odd!"
+
+
+    ## Setup some variables
+    max_H_det = max(Table.list_of_determinants())
+    H_det_at_2 = 2**(1 + N_nu_2)
+    max_odd_num = floor(QQ(max_H_det) / H_det_at_2)
+
+    ## DIANOSTIC
+    #print "max_H_det = " + str(max_H_det)
+    #print "N_nu_2 = " + str(N_nu_2)
+    #print "H_det_at_2 = " + str(H_det_at_2)
+    #print "max_odd_num = " + str(max_odd_num)
+
+
+    ## Deal with a possible given upper bound for N
+    if (max_N > 0):
+        max_odd_num = min(max_odd_num, QQ(max_N) / (2**N_nu_2))
+
+
+    ## Make the list of odd numbers we can use to solve the system    
+    m_list = [m  for m in range(1, max_odd_num+1)  if (m - u) % two_mod == 0]
+    N_list = [(2**N_nu_2) * m  for m in m_list]
+
+    ## DIANOSTIC
+    #print "m_list = " + str(m_list)
+    #print "N_list = " + str(N_list)
+    
+    
+    ## Make the matrix M for the linear system MM * [A_2 B_2]^t = [known masses as column]
+    colA = [prod([A3_for_N_at_p_odd(N, p) for p in prime_divisors(2*N)[1:]]) for N in m_list]                                       
+    colB = [prod([B3_for_N_at_p_odd(N, p) for p in prime_divisors(2*N)[1:]]) for N in m_list]                                       
+    MM = Matrix([colA, colB]).transpose()
+
+    ## SANITY CHECK: Is the rank of MM >= 2?
+    MM_rank = MM.rank()
+    if MM_rank < 2:
+        raise RuntimeError, "The rank of this matrix is <= 1, so it doesn't determine a unique solution!"
+
+    ## DIAGNOSTIC
+    #print "Using " + str(len(m_list)) + " equations to solve for A_2 and B_2"
+    #print "MM has rank " + str(MM_rank)   
+    #if (max_N > 0):
+    #    print "MM = \n"
+    #    for i in range(MM.nrows()):
+    #        print MM[i]
+
+
+    ## Make the column of known masses MB
+    mass_sums = [sum([1/Q.number_of_automorphisms() \
+        for Q in Table.list_forms_of_det(2 * N) if Q.is_primitive() ]) \
+        for N in N_list] 
+    mass_normalize = [QQ(2) * 96 / (N**2)  for N in N_list]
+    col_mass = [mass_sums[i] * mass_normalize[i]  for i in range(len(N_list))]
+    MB = Matrix([col_mass]).transpose();
+
+    ## DIAGNOSTIC
+    #if (max_N > 0):
+    #    print "MB^t = \n", col_mass
+    #    print "mass_sums = \n", mass_sums
+    #    print "mass_normalize = \n", mass_normalize
+    #    print "N_list = \n", N_list
+
+
+    
+    ## Solve for A_2 and B_2 
+    X = MM.solve_right(MB)
+    A_2 = X[0][0]
+    B_2 = X[1][0]
+    
+    return [A_2, B_2]
+
+
+
+
+def check_binary_A_B_with_S_nu_2(N_nu_2, two_mod=8, N_max=0):
+    """
+    Check the A and B for N with a given 2-power and odd-part 
+    congruence mod 8 (or maybe mod 4).
+
+    """
+    print "Checking N = u * 2^" + str(N_nu_2) + " with u (mod " + str(two_mod) + "):\n"
+    for u in range(1, two_mod, 2):
+        print "Using u = " + str(u) + "(mod " + str(two_mod) + ")\n"
+        A_B_computed = solve_for_A_B_with_N_nu_2_and_u(N_nu_2, u, two_mod, Table, N_max)
+
+        N = 2^N_nu_2 * u
+        A_B_theoretical = [A3_for_N_at_p_even(N), B3_for_N_at_p_even(N)]
+
+        Diff_list = [ A_B_computed[i] - A_B_theoretical[i]  for i in range(2)]
+
+        print "A_B_computed    = " + str(A_B_computed)
+        print "A_B_theoretical = " + str(A_B_theoretical)
+        print "computed - theoretical = " + str(Diff_list)
+        print "--------------------------------------"
+
+
+
+
+
+
