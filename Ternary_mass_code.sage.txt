@@ -1,0 +1,682 @@
+print "Loading Ternary_mass_code.sage"
+
+#*****************************************************************************
+#       Copyright (C) 2011 Jonathan Hanke
+#
+#  Distributed under the terms of the GNU General Public License (GPL)
+#
+#    This code is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#    General Public License for more details.
+#
+#  The full text of the GPL is available at:
+#
+#                  http://www.gnu.org/licenses/
+#*****************************************************************************
+
+
+#################################################################################
+##
+##  Description:
+##  ------------
+##  This code supports the paper 
+##  
+##      Hanke -- "Explicit formulas for Masses of Ternary Quadratic Lattices 
+##               of varying determinant over Number Fields"
+##
+##  available at
+##
+##      http://arxiv.org/abs/YYYY.ZZZZ
+##
+##  and computes the A_p and B_p quantities by summing the contributions 
+##  of each of the 4 Jordan Block decompositions (for p>2) or the 20 Partial
+##  Local Genus Symbol contributions (for p=2).  
+##
+################################################################################
+
+
+
+##################################################################################
+##################################################################################
+##################################################################################
+
+
+
+
+
+##############################################################################
+##
+##  This is original code to compute the quantities M_{N, sigma} for  
+##  positive definite ternary quadratic forms of Hessian determinant 2*N.
+##
+##############################################################################
+
+## Make the Global Ternary Table (if it is not already defined):
+## -------------------------------------------------------------
+try:
+    Ternary_table
+except NameError:
+    try:
+        Max_H_Det = 2000  # This is saved in a table
+        print "Creating a table of primitive ternaries of determinant <= " + str(Max_H_Det) + "."       
+        Ternary_table = load("/home/jonhanke/HT" + str(Max_H_Det) + ".sobj")
+        print "Finished creating a table of primitive ternaries of determinant <= " + str(Max_H_Det) + "."
+    except:
+        Max_H_Det = 400  # This can be quickly computed on the fly in a few seconds 
+        print "Creating a table of primitive ternaries of determinant <= " + str(Max_H_Det) + "."       
+        Ternary_table = hanke_ternary_table_by_determinant(Max_H_Det);
+        print "Finished creating a table of primitive ternaries of determinant <= " + str(Max_H_Det) + "."
+
+
+
+
+
+
+
+
+
+
+## Compute the quantity M_{N, \sigma} for pos def ternaries by the mass formula:
+## -----------------------------------------------------------------------------
+
+def M3_pos_def_for_N(N, TT=Ternary_table):
+    """
+    Compute the quantity M_{N, \sigma} for (primitive) positive definite integer-valued
+    ternary quadratic forms of fixed Hessian determinant 2*N by the mass formula.
+    
+    This assumes the existence of a Hanke table TT that contains all classes of 
+    positive definite integer-valued ternary quadratic forms of given (Hessian) determinant.
+    
+    INPUT:
+        N -- an integer >=1
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: M3_pos_def_for_N(1)
+        0
+        sage: M3_pos_def_for_N(3)
+        1/4
+        sage: M3_pos_def_for_N(2)
+        1
+        sage: M3_pos_def_for_N(4)
+        1/48
+
+    """
+    ## SANITY CHECK:  Is N a positive integer?
+    ## SANITY CHECK:  Does the table cover forms of (Hessian) determinant 2*N?
+
+    ## Compute the mass and M_N    
+    total_mass_for_N = sum([1/Q.number_of_automorphisms()  for Q in TT.list_forms_of_det(2*N) if Q.is_primitive()])
+    M_N = (QQ(2*96) / (N**2)) * total_mass_for_N
+
+    return M_N
+
+
+
+
+def A3_for_N_at_p_odd(N, p):
+    """
+    Computes the quantity A_{N,sigma} at an odd prime p for (primitive) positive 
+    definite integer-valued ternary quadratic forms of fixed Hessian determinant 
+    2*N by our table of local computations.
+    
+    INPUT:
+        N -- an integer >=1
+        p -- a prime number >2
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: A3_for_N_at_p_odd(1,3)
+        0
+
+    """
+    ## SANITY CHECK: Is p is an odd prime and N >=1?
+    
+    ## Setup some convenient quantities
+    nu = valuation(N,p)
+    A_sum = 0
+    
+    ## Case 1:
+    if nu == 0:
+        return 1
+        
+    ## Case 2:
+    if nu >= 1:
+        b = nu
+        A_sum += QQ(1)/p**b
+    
+    ## Case 3:
+    if (nu >= 2) and (nu % 2 == 0):
+        b = nu / 2
+        A_sum += QQ(1)/(p**(3*b))
+    
+    ## Case 4:
+    if nu >= 3:
+        for a in range(1, (nu-1)/2 + 1):
+            b = nu - a
+            A_sum += QQ(1)/p**(2*a + b) * (1 - QQ(1)/p**2)
+
+    ## Return the A_sum
+    return A_sum
+
+
+
+def B3_for_N_at_p_odd(N, p):
+    """
+    Computes the quantity B_{N,sigma} at an odd prime p for (primitive) positive 
+    definite integer-valued ternary quadratic forms of fixed Hessian determinant 
+    2*N by our table of local computations.
+    
+    INPUT:
+        N -- an integer >=1
+        p -- a prime number >2
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: B3_for_N_at_p_odd(1,3)
+        1
+
+    """
+    ## SANITY CHECK: Is p is an odd prime and N >=1?
+    
+    ## Setup some convenient quantities
+    nu = valuation(N,p)
+    B_sum = 0
+    
+    ## Case 1:
+    if nu == 0:
+        return 1
+        
+    ## Case 2:
+    if nu >= 1:
+        b = nu
+        if (b % 2 == 0):
+            B_sum += QQ(1)/(p**b)
+        else:
+            B_sum += ((-1)**((p-1)/2)) * QQ(1)/(p**(b+1))
+    
+    ## Case 3:
+    if (nu >= 2) and (nu % 2 == 0):
+        b = nu / 2
+        if (b % 2 == 0):
+            B_sum += QQ(1)/(p**(3*b)) 
+        else:
+            B_sum += QQ(1)/(p**(3*b + 1))
+    
+    ## Case 4:
+    if nu >= 3:
+        a_max = floor(QQ(nu - 1)/2)
+        #print "p = ", p
+        #print "nu = ", nu
+        #print "a_max = ", a_max
+        for a in range(1, a_max + 1):
+            b = nu - a
+            if (a % 2 == 0) and (b % 2 == 0):
+                B_sum += (QQ(1)/p**(2*a + b)) * (1 - QQ(1)/p**2)
+                #print "Non-trivial contribution in Case 4:  a = " + str(a) + "  b = " + str(b)
+            else:
+                B_sum += 0
+
+    ## Return the B_sum
+    return B_sum
+
+
+
+
+def A3_for_N_at_p_even(N):
+    """
+    Computes the quantity A_{N,sigma} at p=2 for (primitive) positive definite integer-valued
+    ternary quadratic forms of fixed Hessian determinant 2*N by our table of local computations.
+    
+    INPUT:
+        N -- an integer >=1
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: A3_for_N_at_p_even(1)
+        1/4
+
+    """
+    ## SANITY CHECK: Is N >=1?
+    
+    ## Setup some convenient quantities
+    p=2
+    nu = valuation(N,p) - 2  ## This is the valuation of the Gram determinant
+    u = (QQ(N) / p**(nu + 2))
+    A_sum = 0
+    
+    ## Case 1:
+    if nu == 0:
+        A_sum += QQ(1) / 2
+    
+    ## Case 2:
+    if nu == 1:
+        A_sum += QQ(3) * (2**(-4))
+ 
+    ## Case 3:
+    if nu == 2:
+        A_sum += QQ(3) * (2**(-5))
+
+    ## Case 4:
+    if nu >= 3:
+        b = nu
+        A_sum += QQ(3) * (2**(-b-3))
+
+    ## Case 5:
+    if nu == -2:
+        A_sum += QQ(4)
+
+    ## Case 6:
+    if nu >= -1:
+        b = nu + 2
+        A_sum += QQ(2)**(2-b)
+
+    ## Case 7:
+    if nu == 2:
+        A_sum += QQ(3) * (2**(-6))
+
+    ## Case 8:
+    if nu == 4:
+        A_sum += QQ(3) * (2**(-9))
+
+    ## Case 9:
+    if (nu >= 6) and (nu % 2 == 0):
+        b = nu / 2
+        A_sum += QQ(3) * (2**(-3*b - 3))
+
+    ## Case 10:
+    if nu == 2:
+        A_sum += 2**(-6)
+
+    ## Case 11:
+    if (nu >= 4) and (nu % 2 == 0):
+        b = nu / 2
+        A_sum += 2**(-3*b - 3)
+
+    ## Case 12:
+    if nu == 3:
+        A_sum += QQ(3) * 2**(-7)
+
+    ## Case 13:
+    if nu == 4:        
+        A_sum += QQ(3 * 4) * (2**(-10))
+
+    ## Case 14:
+    if nu == 5:
+        A_sum += QQ(3) * 2**(-10)
+
+    ## Case 15:
+    if nu == 6:
+        A_sum += QQ(3) * 2**(-11)
+
+    ## Case 16:
+    if nu >= 5:
+        c = nu - 1
+        A_sum += QQ(3) * (2**(-c-5))
+
+    ## Case 17:
+    if (nu >= 7) and ((nu-1) % 2 == 0):
+        b = (nu - 1) / 2
+        A_sum += QQ(3) * (2**(-3*b - 4))
+
+    ## Case 18:
+    if (nu >= 8) and (nu % 2 == 0):
+        b = (nu - 2) / 2
+        A_sum += QQ(3) * (2**(-3*b - 5))
+
+    ## Case 19:
+    if nu >= 7:
+        c = nu - 2
+        A_sum += QQ(3) * (2**(-c-7))
+
+    ## Case 20:
+    if nu >= 9:
+        b_max = floor((nu - 3) / 2)
+        for b in range(3, b_max + 1):
+            c = nu - b
+            A_sum += QQ(3) * (2**(-2*b-c-3))
+
+
+    ## Return the A_sum
+    return A_sum
+
+
+
+def B3_for_N_at_p_even(N):
+    """
+    Computes the quantity A_{N,sigma} at p=2 for (primitive) positive definite integer-valued
+    ternary quadratic forms of fixed Hessian determinant 2*N by our table of local computations.
+    
+    INPUT:
+        N -- an integer >=1
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: B3_for_N_at_p_even(1)
+        -1/8
+        sage: [B3_for_N_at_p_even(N)  for N in range(1,20,2)]
+        [-1/8, 1/8, 1/8, -1/8, -1/8, 1/8, 1/8, -1/8, -1/8, 1/8]
+
+
+    """
+    ## SANITY CHECK: Is N >=1?
+    
+    ## Setup some convenient quantities
+    p=2
+    nu = valuation(N,p) - 2  ## This is the valuation of the Gram determinant
+    u = (QQ(N) / p**(nu + 2))
+    B_sum = 0
+    
+    ## Case 1:
+    if nu == 0:
+        B_sum += (-1)**((u-1)/2) * (-1) * QQ(1)/4
+
+    ## Case 2:
+    if nu == 1:
+        B_sum += 0
+
+    ## Case 3:
+    if nu == 2:        
+        B_sum += (-1)**((u-1)/2) * QQ(-3) * (2**(-6))
+
+    ## Case 4:
+    if nu >= 3: 
+        b = nu
+        if (b % 2 == 0): 
+            B_sum += (-1)**((u-1)/2) * QQ(-3) * (2**(-b-4))
+        else:
+            B_sum += 0
+
+    ## Case 5:
+    if nu == -2:        
+         B_sum += (-1)**((u-1)/2) * QQ(-4)   
+    
+    ## Case 6:
+    if nu >= -1:
+        b = nu + 2
+        if b % 2 == 0:
+            B_sum += (-1)**((u-1)/2) * (-1) * QQ(2)**(2-b)
+        else:
+            B_sum += (-1)**((u-1)/2) * (-1) * QQ(2)**(1-b)
+
+    ## Case 7:
+    if nu == 2:
+        B_sum += 0
+
+    ## Case 8:
+    if nu == 4:        
+         B_sum += (-1)**((u-1)/2) * (-3) * (2**(-10))
+
+    ## Case 9:
+    if (nu >= 6) and (nu % 2 == 0):
+        b = nu / 2
+        if (b % 2 == 0):
+            B_sum += (-1)**((u-1)/2) * QQ(-3) * (2**(-3*b - 4))
+        else:
+            B_sum += 0
+
+    ## Case 10:
+    if nu == 2:        
+         B_sum += (-1)**((u-1)/2) * (-1) * (2**(-6))
+
+    ## Case 11:
+    if (nu >= 4) and (nu % 2 == 0):
+        b = nu / 2
+        if (b % 2 == 1):
+            B_sum += (-1)**((u-1)/2) * (-1) * (2**(-3*b - 3))
+        else:
+            B_sum += (-1)**((u-1)/2) * (-1) * (2**(-3*b - 4))
+            
+    ## Case 12:
+    if nu == 3:        
+         B_sum += 0
+
+    ## Case 13:
+    if nu == 4:        
+         B_sum += 0
+
+    ## Case 14:
+    if nu == 5:
+        B_sum += 0
+
+    ## Case 15:
+    if nu == 6:
+        B_sum += (-1)**((u-1)/2) * QQ(-3) * (2**(-12))
+
+    ## Case 16:
+    if nu >= 5:
+         c = nu - 1
+         B_sum += 0
+
+    ## Case 17:
+    if (nu >= 7) and ((nu-1) % 2 == 0):
+        b = (nu - 1) / 2
+        B_sum += 0
+
+    ## Case 18:
+    if (nu >= 8) and (nu % 2 == 0):
+        b = (nu - 2) / 2
+        if (b % 2 == 0):
+            B_sum += (-1)**((u-1)/2) * QQ(-3) * (2**(-3*b-6))
+        else:
+            B_sum += 0
+
+    ## Case 19:
+    if nu >= 7:
+        c = nu - 2
+        if (c % 2 == 0):
+            B_sum += (-1)**((u-1)/2) * QQ(-3) * (2**(-c-8))
+        else:
+            B_sum += 0
+
+    ## Case 20:
+    if nu >= 9:
+        b_max = floor((nu - 3) / 2)
+        for b in range(3, b_max + 1):
+            c = nu - b
+            if (b % 2 == 0) and (c % 2 == 0):
+                B_sum += (-1)**((u-1)/2) * QQ(-3) * (2**(-2*b -c -4))
+
+    ## Return the B_sum
+    return B_sum
+
+
+
+
+
+
+def A3_plus_B3_for_N(N):
+    """
+    Computes the sum of the quantites A_{N,sigma} and B_{N,sigma} for 
+    (primitive) positive definite integer-valued ternary quadratic forms 
+    of fixed Hessian determinant 2*N by our table of local computations.
+
+    INPUT:
+        N -- an integer >=1
+        
+    OUTPUT:
+        a rational number >=0
+        
+    EXAMPLES:
+        sage: A3_plus_B3_for_N(1)
+        
+    """
+    ## SANITY CHECK: Is N >=1?
+
+    ## Setup some useful quantities
+    odd_primes_of_N = prime_divisors(2*N)[1:]
+
+    ## Compute A_N
+    A3_N = A3_for_N_at_p_even(N)
+    for p in odd_primes_of_N:
+        A3_N *= A3_for_N_at_p_odd(N, p)
+
+    ## Compute B_N
+    B3_N = B3_for_N_at_p_even(N)
+    for p in odd_primes_of_N:
+        B3_N *= B3_for_N_at_p_odd(N, p)
+
+    ## Return the sum
+    return A3_N + B3_N
+
+
+
+
+def verify_ternary_mass_with_AB_for(m_list):
+    """
+    Checks if the ternary mass agrees with the A + B computation, where the 
+    input is a list of half-Hessian determinants.  
+    
+    """
+    #print "m_list = ", m_list
+
+    ## Make the two lists
+    A_plus_B_list = [A3_plus_B3_for_N(m) for m in m_list]
+    M3_list = [M3_pos_def_for_N(m, Ternary_table) for m in m_list]
+
+    ## See how far off these computations are!
+    Diff_list = [A_plus_B_list[i] - M3_list[i]  for i in range(len(m_list))]; Diff_list
+    #print "Diff_list = ", Diff_list
+
+    ## Determine which numbers N have a discrepancy
+    wrong_m_list = [m_list[i]  for i in range(len(m_list))  if Diff_list[i] != 0]
+    print "wrong_m_list = ", wrong_m_list
+
+    return wrong_m_list
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Diagnostic routine to solve for individual A_2 and B_2 coefficients!
+## --------------------------------------------------------------------
+
+def solve_for_A_B_with_N_nu_2_and_u(N_nu_2, u, two_mod=8, Table=Ternary_table, max_N=0):
+    """
+    Try to solve for A_(2^N_nu_2) and B_(2^N_nu_2) for a 
+    fixed N_odd = u (mod 8) using our table of ternary forms.
+    """    
+    ## SANITY CHECK: u is odd
+    if u % 2 == 0:
+        raise TypeError, "The number u must be odd!"
+
+
+    ## Setup some variables
+    max_H_det = max(Table.list_of_determinants())
+    H_det_at_2 = 2**(1 + N_nu_2)
+    max_odd_num = floor(QQ(max_H_det) / H_det_at_2)
+
+    ## DIANOSTIC
+    #print "max_H_det = " + str(max_H_det)
+    #print "N_nu_2 = " + str(N_nu_2)
+    #print "H_det_at_2 = " + str(H_det_at_2)
+    #print "max_odd_num = " + str(max_odd_num)
+
+
+    ## Deal with a possible given upper bound for N
+    if (max_N > 0):
+        max_odd_num = min(max_odd_num, QQ(max_N) / (2**N_nu_2))
+
+
+    ## Make the list of odd numbers we can use to solve the system    
+    m_list = [m  for m in range(1, max_odd_num+1)  if (m - u) % two_mod == 0]
+    N_list = [(2**N_nu_2) * m  for m in m_list]
+
+    ## DIANOSTIC
+    #print "m_list = " + str(m_list)
+    #print "N_list = " + str(N_list)
+    
+    
+    ## Make the matrix M for the linear system MM * [A_2 B_2]^t = [known masses as column]
+    colA = [prod([A3_for_N_at_p_odd(N, p) for p in prime_divisors(2*N)[1:]]) for N in m_list]                                       
+    colB = [prod([B3_for_N_at_p_odd(N, p) for p in prime_divisors(2*N)[1:]]) for N in m_list]                                       
+    MM = Matrix([colA, colB]).transpose()
+
+    ## SANITY CHECK: Is the rank of MM >= 2?
+    MM_rank = MM.rank()
+    if MM_rank < 2:
+        raise RuntimeError, "The rank of this matrix is <= 1, so it doesn't determine a unique solution!"
+
+    ## DIAGNOSTIC
+    #print "Using " + str(len(m_list)) + " equations to solve for A_2 and B_2"
+    #print "MM has rank " + str(MM_rank)   
+    #if (max_N > 0):
+    #    print "MM = \n"
+    #    for i in range(MM.nrows()):
+    #        print MM[i]
+
+
+    ## Make the column of known masses MB
+    mass_sums = [sum([1/Q.number_of_automorphisms() \
+        for Q in Table.list_forms_of_det(2 * N) if Q.is_primitive() ]) \
+        for N in N_list] 
+    mass_normalize = [QQ(2) * 96 / (N**2)  for N in N_list]
+    col_mass = [mass_sums[i] * mass_normalize[i]  for i in range(len(N_list))]
+    MB = Matrix([col_mass]).transpose();
+
+    ## DIAGNOSTIC
+    #if (max_N > 0):
+    #    print "MB^t = \n", col_mass
+    #    print "mass_sums = \n", mass_sums
+    #    print "mass_normalize = \n", mass_normalize
+    #    print "N_list = \n", N_list
+
+
+    
+    ## Solve for A_2 and B_2 
+    X = MM.solve_right(MB)
+    A_2 = X[0][0]
+    B_2 = X[1][0]
+    
+    return [A_2, B_2]
+
+
+
+
+def check_A_B_with_N_nu_2(N_nu_2, two_mod=8, Table=Ternary_table, N_max=0):
+    """
+    Check the A and B for N with a given 2-power and odd-part 
+    congruence mod 8 (or maybe mod 4).
+
+    """
+    print "Checking N = u * 2^" + str(N_nu_2) + " with u (mod " + str(two_mod) + "):\n"
+    for u in range(1, two_mod, 2):
+        print "Using u = " + str(u) + "(mod " + str(two_mod) + ")\n"
+        A_B_computed = solve_for_A_B_with_N_nu_2_and_u(N_nu_2, u, two_mod, Table, N_max)
+
+        N = 2^N_nu_2 * u
+        A_B_theoretical = [A3_for_N_at_p_even(N), B3_for_N_at_p_even(N)]
+
+        Diff_list = [ A_B_computed[i] - A_B_theoretical[i]  for i in range(2)]
+
+        print "A_B_computed    = " + str(A_B_computed)
+        print "A_B_theoretical = " + str(A_B_theoretical)
+        print "computed - theoretical = " + str(Diff_list)
+        print "--------------------------------------"
+
+
+
+
+
+
